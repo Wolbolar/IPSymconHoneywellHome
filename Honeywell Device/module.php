@@ -29,6 +29,10 @@ class HoneywellDevice extends IPSModule
         $this->RegisterAttributeBoolean('humidity_enabled', false);
         $this->RegisterAttributeFloat('temperature', 0);
         $this->RegisterAttributeBoolean('temperature_enabled', false);
+        $this->RegisterAttributeInteger('signal_strength', 0);
+        $this->RegisterAttributeBoolean('signal_strength_enabled', false);
+        $this->RegisterAttributeInteger('battery', 0);
+        $this->RegisterAttributeBoolean('battery_enabled', false);
         $this->RegisterAttributeBoolean('alarm', false);
         $this->RegisterAttributeBoolean('alarm_enabled', false);
 
@@ -53,6 +57,7 @@ class HoneywellDevice extends IPSModule
         if ($id == '') {
             $this->SetStatus(205);
         } elseif ($id != '') {
+            $this->SetReceiveDataFilter(".*" . $id . ".*");
             $this->RegisterVariables();
             $this->SetStatus(IS_ACTIVE);
         }
@@ -120,6 +125,18 @@ class HoneywellDevice extends IPSModule
 
             $this->SetupVariable(
                 'humidity', $this->Translate('humidity'), '~Humidity.F', $this->_getPosition(), VARIABLETYPE_FLOAT, false, true
+            );
+
+            $this->SetupVariable(
+                'signal_strength', $this->Translate('Wifi Signal Strength'), '', $this->_getPosition(), VARIABLETYPE_INTEGER, false, true
+            );
+
+            $this->SetupVariable(
+                'battery', $this->Translate('Battery'), '~Battery.100', $this->_getPosition(), VARIABLETYPE_INTEGER, false, true
+            );
+
+            $this->SetupVariable(
+                'alarm', $this->Translate('Alarm'), '~Alert', $this->_getPosition(), VARIABLETYPE_BOOLEAN, false, true
             );
         }
         // $this->WriteValues();
@@ -242,10 +259,16 @@ class HoneywellDevice extends IPSModule
                     $currentSensorReadings = $device['currentSensorReadings'];
                     $temperature = $currentSensorReadings['temperature'];
                     $humidity = $currentSensorReadings['humidity'];
+                    $signal_strength = $device['wifiSignalStrength'];
+                    $battery = $device['batteryRemaining'];
                     $this->SendDebug('Honeywell temperature', $temperature, 0);
                     $this->SetValue('temperature', $temperature);
                     $this->SendDebug('Honeywell humidity', $humidity, 0);
                     $this->SetValue('humidity', $humidity);
+                    $this->SendDebug('Honeywell signal strength', $signal_strength, 0);
+                    $this->SetValue('signal_strength', $signal_strength);
+                    $this->SendDebug('Honeywell battery', $battery, 0);
+                    $this->SetValue('battery', $battery);
                 }
             }
         }
