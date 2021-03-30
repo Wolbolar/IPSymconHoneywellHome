@@ -118,10 +118,24 @@ class HoneywellCloud extends IPSModule
 
     }
 
-    public function GetToken()
+    private function FetchData($url)
     {
-        $token = $this->FetchAccessToken();
-        return $token;
+        $this->SendDebug("AT", $this->FetchAccessToken(), 0);
+        $opts = array(
+            "http" => array(
+                "method" => "GET",
+                "header" => "Authorization: Bearer " . $this->FetchAccessToken(),
+                "ignore_errors" => true
+            )
+        );
+
+        $context = stream_context_create($opts);
+        $url = $this->GetURL($url);
+        $this->SendDebug('Honeywell fetch data', $url, 0);
+        $result = file_get_contents($url, false, $context);
+        $http_error = $http_response_header[0];
+        $result = $this->GetErrorMessage($http_error, $result);
+        return $result;
     }
 
     private function FetchAccessToken($Token = '', $Expires = 0)
@@ -148,22 +162,27 @@ class HoneywellCloud extends IPSModule
                     'content' => http_build_query(['refresh_token' => $this->ReadAttributeString('Token')])]];
             $context = stream_context_create($options);
             $result = file_get_contents('https://oauth.ipmagic.de/access_token/' . $this->oauthIdentifer, false, $context);
-
-            $data = json_decode($result);
-            $this->SendDebug('Symcon Connect Data', $result, 0);
-            if (!isset($data->token_type) || $data->token_type != 'Bearer') {
-                die('Bearer Token expected');
+            if($result == false)
+            {
+                $this->SendDebug('FetchAccessToken', "failed to open stream: HTTP request failed! HTTP/1.1 400 Bad Request", 0);
             }
+            else{
+                $data = json_decode($result);
+                $this->SendDebug('Symcon Connect Data', $result, 0);
+                if (!isset($data->token_type) || $data->token_type != 'Bearer') {
+                    die('Bearer Token expected');
+                }
 
-            //Update parameters to properly cache it in the next step
-            $Token = $data->access_token;
-            $Expires = time() + $data->expires_in;
+                //Update parameters to properly cache it in the next step
+                $Token = $data->access_token;
+                $Expires = time() + $data->expires_in;
 
-            //Update Refresh Token if we received one! (This is optional)
-            if (isset($data->refresh_token)) {
-                $this->SendDebug('FetchAccessToken', "NEW! Let's save the updated Refresh Token permanently", 0);
+                //Update Refresh Token if we received one! (This is optional)
+                if (isset($data->refresh_token)) {
+                    $this->SendDebug('FetchAccessToken', "NEW! Let's save the updated Refresh Token permanently", 0);
 
-                $this->WriteAttributeString('Token', $data->refresh_token);
+                    $this->WriteAttributeString('Token', $data->refresh_token);
+                }
             }
         }
 
@@ -174,6 +193,44 @@ class HoneywellCloud extends IPSModule
 
         //Return current Token
         return $Token;
+    }
+
+    private function GetErrorMessage($http_error, $result)
+    {
+        $response = $result;
+        if ((strpos($http_error, '200') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Success. Response Body: ' . $result, 0);
+        } elseif ((strpos($http_error, '201') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Success. CreatedResponse Body: ' . $result, 0);
+        } elseif ((strpos($http_error, '401') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Failure, user could not be authenticated. Authorization-Provider or X-Api-Key header or Beaerer Token missing or invalid. Response Body: ' . $result, 0);
+            $response = false;
+        } elseif ((strpos($http_error, '404') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Failure, location not found. Response Body: ' . $result, 0);
+            $response = false;
+        } elseif ((strpos($http_error, '500') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Failure, internal error. Response Body: ' . $result, 0);
+            $response = false;
+        } elseif ((strpos($http_error, '502') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Failure, backend error. Response Body: ' . $result, 0);
+            $response = false;
+        } elseif ((strpos($http_error, '415') > 0)) {
+            $this->SendDebug('HTTP Response Header', 'Unsupported Media Type. Response Body: ' . $result, 0);
+            $response = false;
+        } else {
+            $this->SendDebug('HTTP Response Header', $http_error . ' Response Body: ' . $result, 0);
+            $response = false;
+        }
+
+        if ($result == '{"message":"Limit Exceeded"}') {
+            $this->SendDebug('Honeywell API', 'Limit Exceeded', 0);
+        }
+        return $response;
+    }
+
+    public function GetToken()
+    {
+        return $this->FetchAccessToken();
     }
 
     /**
@@ -254,39 +311,6 @@ class HoneywellCloud extends IPSModule
         return self::SMART_SYSTEM_BASE_URL . $url;
     }
 
-    private function GetErrorMessage($http_error, $result)
-    {
-        $response = $result;
-        if ((strpos($http_error, '200') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Success. Response Body: ' . $result, 0);
-        } elseif ((strpos($http_error, '201') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Success. CreatedResponse Body: ' . $result, 0);
-        } elseif ((strpos($http_error, '401') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Failure, user could not be authenticated. Authorization-Provider or X-Api-Key header or Beaerer Token missing or invalid. Response Body: ' . $result, 0);
-            $response = false;
-        } elseif ((strpos($http_error, '404') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Failure, location not found. Response Body: ' . $result, 0);
-            $response = false;
-        } elseif ((strpos($http_error, '500') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Failure, internal error. Response Body: ' . $result, 0);
-            $response = false;
-        } elseif ((strpos($http_error, '502') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Failure, backend error. Response Body: ' . $result, 0);
-            $response = false;
-        } elseif ((strpos($http_error, '415') > 0)) {
-            $this->SendDebug('HTTP Response Header', 'Unsupported Media Type. Response Body: ' . $result, 0);
-            $response = false;
-        } else {
-            $this->SendDebug('HTTP Response Header', $http_error . ' Response Body: ' . $result, 0);
-            $response = false;
-        }
-
-        if ($result == '{"message":"Limit Exceeded"}') {
-            $this->SendDebug('Honeywell API', 'Limit Exceeded', 0);
-        }
-        return $response;
-    }
-
     // Honeywell API
 
     private function PostData($url, $content)
@@ -342,26 +366,6 @@ class HoneywellCloud extends IPSModule
         }
         $this->SendDataToChildren(json_encode(array("DataID" => "{D1652935-46FB-2A72-3FD1-32D2B44EE2BE}", "Buffer" => $devices)));
         return $devices;
-    }
-
-    private function FetchData($url)
-    {
-        $this->SendDebug("AT", $this->FetchAccessToken(), 0);
-        $opts = array(
-            "http" => array(
-                "method" => "GET",
-                "header" => "Authorization: Bearer " . $this->FetchAccessToken(),
-                "ignore_errors" => true
-            )
-        );
-
-        $context = stream_context_create($opts);
-        $url = $this->GetURL($url);
-        $this->SendDebug('Honeywell fetch data', $url, 0);
-        $result = file_get_contents($url, false, $context);
-        $http_error = $http_response_header[0];
-        $result = $this->GetErrorMessage($http_error, $result);
-        return $result;
     }
 
     /**  Get a Specific Device by ID
@@ -425,8 +429,7 @@ class HoneywellCloud extends IPSModule
 
     public function CheckToken()
     {
-        $token = $this->ReadAttributeString('Token');
-        return $token;
+        return $this->ReadAttributeString('Token');
     }
 
     /**
@@ -580,23 +583,22 @@ class HoneywellCloud extends IPSModule
      */
     protected function ProcessOAuthData()
     {
-
-        // <REDIRECT_URI>?code=<AUTHORIZATION_CODE>&state=<STATE>
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             if (!isset($_GET['code'])) {
                 die('Authorization Code expected');
             }
 
             $token = $this->FetchRefreshToken($_GET['code']);
+            if($token != false)
+            {
+                $this->SendDebug('ProcessOAuthData', "OK! Let's save the Refresh Token permanently", 0);
 
-            $this->SendDebug('ProcessOAuthData', "OK! Let's save the Refresh Token permanently", 0);
+                $this->WriteAttributeString('Token', $token);
 
-            $this->WriteAttributeString('Token', $token);
-
-            //This will enforce a reload of the property page. change this in the future, when we have more dynamic forms
-            IPS_ApplyChanges($this->InstanceID);
+                //This will enforce a reload of the property page. change this in the future, when we have more dynamic forms
+                IPS_ApplyChanges($this->InstanceID);
+            }
         } else {
-
             //Just print raw post data!
             $payload = file_get_contents('php://input');
             $this->SendDebug('OAuth Response', $payload, 0);
@@ -611,25 +613,45 @@ class HoneywellCloud extends IPSModule
     private function FetchRefreshToken($code)
     {
         $this->SendDebug('FetchRefreshToken', 'Use Authentication Code to get our precious Refresh Token!', 0);
-        $options = [
-            'http' => [
-                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-                'method' => 'POST',
-                'content' => http_build_query(['code' => $code])]];
-        $context = stream_context_create($options);
-        $result = file_get_contents('https://oauth.ipmagic.de/access_token/' . $this->oauthIdentifer, false, $context);
+        $result = false;
+        set_error_handler(
+            function ($severity, $message, $file, $line) {
+                throw new ErrorException($message, $severity, $severity, $file, $line);
+            }
+        );
 
-        $data = json_decode($result);
-        $this->SendDebug('Symcon Connect Data', $result, 0);
-        if (!isset($data->token_type) || $data->token_type != 'Bearer') {
-            die('Bearer Token expected');
+        try {
+            $options = [
+                'http' => [
+                    'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                    'method' => 'POST',
+                    'content' => http_build_query(['code' => $code])]];
+            $context = stream_context_create($options);
+            $result = file_get_contents('https://oauth.ipmagic.de/access_token/' . $this->oauthIdentifer, false, $context);
+        }
+        catch (Exception $e) {
+            $this->SendDebug('Error', $e->getMessage(), 0);
         }
 
-        //Save temporary access token
-        $this->FetchAccessToken($data->access_token, time() + $data->expires_in);
+        restore_error_handler();
 
-        //Return RefreshToken
-        return $data->refresh_token;
+        if($result != false)
+        {
+            $data = json_decode($result);
+            $this->SendDebug('Symcon Connect Data', $result, 0);
+            if (!isset($data->token_type) || $data->token_type != 'Bearer') {
+                die('Bearer Token expected');
+            }
+
+            //Save temporary access token
+            $this->FetchAccessToken($data->access_token, time() + $data->expires_in);
+
+            //Return RefreshToken
+            return $data->refresh_token;
+        }
+        else{
+            return false;
+        }
     }
 
     /**  Set Schedule

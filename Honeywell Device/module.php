@@ -261,6 +261,7 @@ class HoneywellDevice extends IPSModule
                     $humidity = $currentSensorReadings['humidity'];
                     $signal_strength = $device['wifiSignalStrength'];
                     $battery = $device['batteryRemaining'];
+                    $alarm = $device['waterPresent'];
                     $this->SendDebug('Honeywell temperature', $temperature, 0);
                     $this->SetValue('temperature', $temperature);
                     $this->SendDebug('Honeywell humidity', $humidity, 0);
@@ -269,6 +270,8 @@ class HoneywellDevice extends IPSModule
                     $this->SetValue('signal_strength', $signal_strength);
                     $this->SendDebug('Honeywell battery', $battery, 0);
                     $this->SetValue('battery', $battery);
+                    $this->SendDebug('Honeywell alarm', $alarm, 0);
+                    $this->SetValue('alarm', $alarm);
                 }
             }
         }
