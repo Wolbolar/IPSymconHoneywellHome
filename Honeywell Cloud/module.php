@@ -250,7 +250,7 @@ class HoneywellCloud extends IPSModule
 
     public function GetConfiguration()
     {
-
+        $this->Get_All_Locations();
     }
 
     public function ForwardData($data)
