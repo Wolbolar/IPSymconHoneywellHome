@@ -109,13 +109,13 @@ class HoneywellCloud extends IPSModule
         if ($Honeywell_interval < 15 && $Honeywell_interval != 0) {
             $Honeywell_interval = 15;
         }
-        $interval = $Honeywell_interval * 1000 * 60; // minutes
+        $interval = $Honeywell_interval * 1000; // seconds
         $this->SetTimerInterval('Update', $interval);
     }
 
     public function Update()
     {
-
+        $this->GetAllDevices();
     }
 
     private function FetchData($url)
@@ -280,7 +280,9 @@ class HoneywellCloud extends IPSModule
                 $response = $this->RequestSnapshotBuffer();
             } elseif ($data->Endpoint == 'Get_All_Locations') {
                 $response = $this->Get_All_Locations();
-            } elseif ($data->Endpoint == 'token') {
+            }elseif ($data->Endpoint == 'request_location_id') {
+                $response = $this->RequestLocationId();
+            }elseif ($data->Endpoint == 'token') {
                 $response = $this->CheckToken();
             }
         }
@@ -405,6 +407,12 @@ class HoneywellCloud extends IPSModule
             $this->SendDebug('Honeywell Request Snapshot', $snapshot, 0);
         }
         return $snapshot;
+    }
+
+    private function RequestLocationId()
+    {
+        $this->Get_All_Locations();
+        return $this->ReadAttributeString('location_id');
     }
 
     /**  Get all Locations
