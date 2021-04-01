@@ -484,13 +484,14 @@ class HoneywellCloud extends IPSModule
             [
                 'type' => 'Label',
                 'visible' => true,
-                'label' => 'Update interval in minutes (minimum 15 minutes):'
+                'label' => 'Update interval in seconds (minimum 15 seconds):'
             ],
             [
                 'name' => 'UpdateInterval',
                 'visible' => true,
-                'type' => 'IntervalBox',
-                'caption' => 'minutes'
+                'type' => 'NumberSpinner',
+                'minimum' => 15,
+                'caption' => 'seconds'
             ]
         ];
         return $form;
