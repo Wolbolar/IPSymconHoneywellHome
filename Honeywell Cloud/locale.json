@@ -3,7 +3,7 @@
     "de": {
       "Register": "Registrieren",
       "Honeywell: Please register with your Honeywell account!": "Bitte mit dem Honeywell Benutzerkonto registrieren!",
-      "Update interval in minutes (minimum 15 minutes):": "Aktualisierungsinterval in Minuten (minimum 15 Minuten):",
+      "Update interval in seconds (minimum 15 seconds):": "Aktualisierungsinterval in Sekunden (minimum 15 Sekunden):",
       "seconds": "Sekunden",
       "minutes": "Minuten",
       "Honeywell Location: ": "Honeywell Standort: ",
